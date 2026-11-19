@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Dashboard{% endblock %} | IT Help Desk Lab</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="site-header"><nav class="shell" aria-label="Main navigation">
+<a class="brand" href="{{ url_for('dashboard') }}">IT Help Desk Lab</a>
+<div><a href="{{ url_for('dashboard') }}">Dashboard</a>
+<a class="button" href="{{ url_for('new_ticket') }}">New ticket</a></div>
+</nav></header>
+<main class="shell">{% block content %}{% endblock %}</main>
+</body>
+</html>
