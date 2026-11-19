@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Ticket dashboard</h1>
+<p class="intro">Review the queue and prioritize outstanding incidents.</p>
+<div class="metrics">
+  <section><span>Active tickets</span><strong>{{ active }}</strong></section>
+  {% for category in categories %}
+  <section><span>{{ category }}</span><strong>{{ category_totals[category] }}</strong></section>
+  {% endfor %}
+</div>
+<section class="panel">
+<h2>Active tickets by category and priority</h2>
+<p class="muted">Includes open and in-progress tickets.</p>
+<div class="scroll"><table>
+<thead><tr><th scope="col">Category</th>{% for priority in priorities %}<th scope="col">{{ priority }}</th>{% endfor %}</tr></thead>
+<tbody>{% for category in categories %}
+<tr><th scope="row">{{ category }}</th>{% for priority in priorities %}
+<td>{{ counts.get((category, priority), 0) }}</td>{% endfor %}</tr>
+{% endfor %}</tbody>
+</table></div>
+</section>
+<section class="panel">
+<h2>Ticket queue</h2>
+<form method="get" class="filters">
+{% for field, options in [('category', categories), ('priority', priorities), ('status', statuses)] %}
+<label>{{ field|title }}
+<select name="{{ field }}">
+<option value="">All</option>
+{% for option in options %}
+<option {% if filters[field] == option %}selected{% endif %}>{{ option }}</option>
+{% endfor %}
+</select></label>
+{% endfor %}
+<button type="submit">Apply filters</button>
+<a href="{{ url_for('dashboard') }}">Clear</a>
+</form>
+{% if tickets %}
+<div class="scroll"><table>
+<thead><tr>{% for label in ['Ticket', 'Category', 'Priority', 'Status'] %}<th scope="col">{{ label }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for ticket in tickets %}
+<tr>
+<td><a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}"><span class="muted">#{{ ticket.id }}</span> {{ ticket.title }}</a></td>
+<td>{{ ticket.category }}</td>
+<td><span class="badge {{ ticket.priority|lower }}">{{ ticket.priority }}</span></td>
+<td>{{ ticket.status }}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}<p>No tickets match this view.</p>{% endif %}
+</section>
+{% endblock %}

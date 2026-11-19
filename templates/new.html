@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}New ticket{% endblock %}
+{% block content %}
+<h1>New ticket</h1>
+<p class="intro">Record the issue and choose its initial priority.</p>
+<section class="panel narrow">
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form class="stack" method="post">
+<label>Issue title <input name="title" required maxlength="120" value="{{ form.get('title', '') }}"></label>
+<label>Description <textarea name="description" required maxlength="3000" rows="5">{{ form.get('description', '') }}</textarea></label>
+<div class="fields">
+<label>Category <select name="category" required>
+<option value="">Choose a category</option>
+{% for option in categories %}<option {% if form.get('category') == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+</select></label>
+<label>Priority <select name="priority" required>
+<option value="">Choose a priority</option>
+{% for option in priorities %}<option {% if form.get('priority') == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+</select></label>
+</div>
+<div><button type="submit">Create ticket</button></div>
+</form>
+</section>
+{% endblock %}
