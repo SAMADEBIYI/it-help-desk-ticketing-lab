@@ -1,28 +1,30 @@
 # IT Help Desk Ticketing Lab
 
-A Flask and SQLite lab for logging, prioritizing, filtering, and resolving IT incidents.
+Small help desk app I built with Flask and SQLite to practice the ticket workflow I see in IT support: log an issue, set a priority, work it, resolve it.
 
-## Run locally
+## What it does
 
-Use Python 3.11 or newer. Run these commands from the project root.
+- Log tickets with a category (Hardware, Software, Network) and priority
+- Move a ticket through Open, In progress and Resolved, or reopen it
+- Require a note when resolving, and keep a history of every change
+- Dashboard with active counts by category and priority, plus filters on the queue
+
+## Run it
 
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
+
+flask --app app init-db
+flask --app app seed-demo   # optional, adds 3 sample tickets
+flask --app app run
 ```
 
-On Windows PowerShell, use `py -m venv .venv` and `.venv\Scripts\Activate.ps1`.
+Then open http://127.0.0.1:5000. On Windows, activate with `.venv\Scripts\Activate.ps1`.
 
-```sh
-python -m flask --app app init-db
-python -m flask --app app seed-demo
-python -m flask --app app run --host 127.0.0.1
-```
+Tickets are saved in `instance/helpdesk.sqlite`. There is no login, so keep it on localhost.
 
-Open http://127.0.0.1:5000. The optional seed command adds a Wi-Fi outage, a reception printer failure, and an account lockout. You can repeat the command safely.
+## Stack
 
-- Use **New ticket** to log an issue with its category and priority.
-- Open a ticket to change priority, move it through triage and resolution, or reopen it. Add a note when resolving a ticket. The activity timeline records updates.
-- The dashboard counts both Open and In progress tickets in its active totals. The queue can be filtered by category, priority, and status.
-- Tickets are stored in `instance/helpdesk.sqlite` by default. The Flask app is a loopback lab with no sign-in.
+Python, Flask, SQLite (plain SQL, no ORM), Jinja templates, CSS

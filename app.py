@@ -13,12 +13,16 @@ TRANSITIONS = {
     "In progress": ("In progress", "Open", "Resolved"),
     "Resolved": ("Resolved", "Open"),
 }
+# Tickets added by `flask seed-demo` so the dashboard isn't empty on first run
 SAMPLES = (
-    ("Wi-Fi outage in training room", "Several laptops lost connectivity on the training room access point.",
+    ("Wi-Fi outage in training room",
+     "Several laptops lost connectivity on the training room access point.",
      "Network", "High", "Open"),
-    ("Reception printer will not print", "Jobs queue without printing. The panel shows a paper jam.",
+    ("Reception printer will not print",
+     "Jobs queue without printing. The panel shows a paper jam.",
      "Hardware", "Medium", "In progress"),
-    ("Employee account locked out", "The user cannot sign in after repeated password attempts.",
+    ("Employee account locked out",
+     "The user cannot sign in after repeated password attempts.",
      "Software", "Medium", "Open"),
 )
 
@@ -29,11 +33,13 @@ def timestamp():
 
 def create_app(test_config=None):
     app = Flask(__name__)
-    app.config.from_mapping(DATABASE=os.environ.get("HELPDESK_DATABASE", Path(app.instance_path) / "helpdesk.sqlite"))
+    default_db = Path(app.instance_path) / "helpdesk.sqlite"
+    app.config.from_mapping(DATABASE=os.environ.get("HELPDESK_DATABASE", default_db))
     if test_config:
         app.config.update(test_config)
 
     def database():
+        # one connection per request, stored on flask's g
         if "db" not in g:
             g.db = sqlite3.connect(app.config["DATABASE"])
             g.db.row_factory = sqlite3.Row
@@ -71,6 +77,10 @@ def create_app(test_config=None):
             CREATE TABLE IF NOT EXISTS lab_metadata (key TEXT PRIMARY KEY);
         """)
         print("Database ready.")
+
+    def get_history(db, ticket_id):
+        return db.execute("SELECT * FROM history WHERE ticket_id = ? ORDER BY id DESC",
+                          (ticket_id,)).fetchall()
 
     def log_event(db, ticket_id, event, note, when):
         db.execute("INSERT INTO history (ticket_id, event, note, created_at) VALUES (?, ?, ?, ?)",
@@ -110,12 +120,14 @@ def create_app(test_config=None):
         filters = {"category": category, "priority": priority, "status": status}
 
         db = database()
+        # only count tickets that still need work
         grouped = db.execute("""
             SELECT category, priority, COUNT(*) AS total
             FROM tickets WHERE status != 'Resolved'
             GROUP BY category, priority
         """).fetchall()
         counts = {(row["category"], row["priority"]): row["total"] for row in grouped}
+        # an empty filter value means "match everything"
         tickets = db.execute("""
             SELECT * FROM tickets
             WHERE (? = '' OR category = ?) AND (? = '' OR priority = ?) AND (? = '' OR status = ?)
@@ -137,7 +149,8 @@ def create_app(test_config=None):
             priority = form.get("priority")
             if not (0 < len(title) <= 120 and 0 < len(description) <= 3000
                     and category in CATEGORIES and priority in PRIORITIES):
-                return render_template("new.html", form=form, error="Enter a title, description, category, and priority within the field limits."), 400
+                error = "Enter a title, description, category, and priority within the field limits."
+                return render_template("new.html", form=form, error=error), 400
             db = database()
             with db:
                 ticket_id = insert_ticket(db, title, description, category, priority)
@@ -150,8 +163,7 @@ def create_app(test_config=None):
         ticket = db.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
         if ticket is None:
             abort(404)
-        history = db.execute("SELECT * FROM history WHERE ticket_id = ? ORDER BY id DESC", (ticket_id,)).fetchall()
-        return render_template("ticket.html", ticket=ticket, history=history,
+        return render_template("ticket.html", ticket=ticket, history=get_history(db, ticket_id),
                                next_statuses=TRANSITIONS[ticket["status"]])
 
     @app.post("/tickets/<int:ticket_id>")
@@ -161,17 +173,18 @@ def create_app(test_config=None):
         note = request.form.get("note", "").strip()
         db = database()
         with db:
-            db.execute("BEGIN IMMEDIATE")
+            db.execute("BEGIN IMMEDIATE")  # lock so two edits can't overwrite each other
             ticket = db.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
             if ticket is None:
                 abort(404)
             if (priority not in PRIORITIES or status not in TRANSITIONS[ticket["status"]]
                     or len(note) > 2000 or (status == "Resolved" and ticket["status"] != status and not note)):
-                history = db.execute("SELECT * FROM history WHERE ticket_id = ? ORDER BY id DESC", (ticket_id,)).fetchall()
-                return render_template("ticket.html", ticket=ticket, history=history, note=note,
-                                       next_statuses=TRANSITIONS[ticket["status"]],
-                                       error="Choose a valid status and priority. Add a resolution note when resolving a ticket."), 400
+                error = "Choose a valid status and priority. Add a resolution note when resolving a ticket."
+                return render_template("ticket.html", ticket=ticket, history=get_history(db, ticket_id),
+                                       note=note, next_statuses=TRANSITIONS[ticket["status"]],
+                                       error=error), 400
 
+            # build a readable list of what actually changed for the history log
             changes = [f"{field.title()} · {ticket[field]} → {value}"
                        for field, value in (("priority", priority), ("status", status))
                        if value != ticket[field]]
